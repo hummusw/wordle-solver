@@ -1,8 +1,10 @@
 class WordleSolver:
-    dictionaryFilename = 'wordlewords.txt'
+    dictionaryFilename = 'actualwordledictionary.txt'
     roundMax = 6
 
     def __init__(self):
+        self.printToConsole = True
+
         self._initCandidates()
         self.roundNum = 1
         self.won = False
@@ -12,7 +14,13 @@ class WordleSolver:
         file = open(self.dictionaryFilename, 'r')
         while nextLine := file.readline().strip().lower():
             self.candidateWords.append(nextLine)
-        print(f"Reinitialized {len(self.candidateWords)} candidate words")
+        if self.printToConsole:
+            self.log(f"Reinitialized {len(self.candidateWords)} candidate words")
+
+    def reinitialize(self):
+        self._initCandidates()
+        self.roundNum = 1
+        self.won = False
 
     def getNextGuess(self):
         # Calculate frequencies of letters in each position
@@ -29,11 +37,11 @@ class WordleSolver:
         optimal = ''
         for pos in range(5):
             optimal += max(frequencies[pos], key=lambda x: frequencies[pos][x], default='#')
-        print(f'Optimal guess: {optimal}')
+        self.log(f'Optimal guess: {optimal}')
 
         # Guess most similar word
         guess = max(self.candidateWords, key=lambda candidate: sum([3 if candidate[i] == optimal[i] else 1 if candidate[i] in optimal else 0 for i in range(5)]))
-        print(f'Most similar guess: {guess}')
+        self.log(f'Most similar guess: {guess}')
 
         return guess
 
@@ -41,7 +49,7 @@ class WordleSolver:
         # Check for correct guess
         if feedback == 'GGGGG':
             self.won = True
-            print(f"Word was: {guess}")
+            self.log(f"Word was: {guess}")
             return
 
         # Find new green letters
@@ -56,10 +64,10 @@ class WordleSolver:
 
         # Filter out candidate words
         wordsbefore = len(self.candidateWords)
-        print(f'Reevaluating {wordsbefore} words', end='')
+        self.log(f'Reevaluating {wordsbefore} words', end='')
         i = 0
         while i < len(self.candidateWords):
-            print('.', end='')
+            self.log('.', end='')
             remove = False
             candidate = self.candidateWords[i]
 
@@ -88,24 +96,35 @@ class WordleSolver:
                 i += 1
         wordsafter = len(self.candidateWords)
 
-        print(f'\nRemoved {wordsbefore - wordsafter} words from candidate list, now down to {wordsafter}\n')
+        self.log(f'\nRemoved {wordsbefore - wordsafter} words from candidate list, now down to {wordsafter}\n')
 
     def advanceRound(self):
+        """
+        Returns True if game continues, and False otherwise (game won or game lost)
+        """
         if self.won:
-            return
+            return False
 
         self.roundNum += 1
 
         if self.roundNum > self.roundMax:
-            print("Game over")
-            print(f"Narrowed it down to: {self.candidateWords}")
+            self.log("Game over")
+            self.log(f"Narrowed it down to: {self.candidateWords}")
+            return False
+
+        if not self.candidateWords:
+            self.log("Game over")
+            self.log("Word not present in dictionary")
+            return False
+
+        return True
 
     def autoPlay(self):
         for i in range(self.roundMax):
-            print(f'Round {self.roundNum}')
+            self.log(f'Round {self.roundNum}')
 
             guess = self.getNextGuess()
-            print(f'Guess: {guess}')
+            self.log(f'Guess: {guess}')
 
             feedback = input('Score: ')
             self.guessResults(guess, feedback)
@@ -114,6 +133,10 @@ class WordleSolver:
 
             if self.won:
                 break
+
+    def log(self, message, end='\n'):
+        if self.printToConsole:
+            print(message, end=end)
 
 
 if __name__ == '__main__':
