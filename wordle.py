@@ -1,151 +1,121 @@
-# allwordsfile = open("linuxwords.txt", "r", newline='\n')
-# wordlefile = open("wordlewords.txt", "w")
-#
-# while word := allwordsfile.readline().strip():
-#     print(f'{word} {len(word)}')
-#     if len(word) == 5:
-#         wordlefile.write(f'{word}\n')
+class WordleSolver:
+    dictionaryFilename = 'wordlewords.txt'
+    roundMax = 6
 
-import random
+    def __init__(self):
+        self._initCandidates()
+        self.roundNum = 1
+        self.won = False
 
-wordlefile = open("wordlewords.txt", "r")
-wordstotal = 3264
+    def _initCandidates(self):
+        self.candidateWords = []
+        file = open(self.dictionaryFilename, 'r')
+        while nextLine := file.readline().strip().lower():
+            self.candidateWords.append(nextLine)
+        print(f"Reinitialized {len(self.candidateWords)} candidate words")
 
-
-
-# Set up variables
-green = ['','','','','']
-yellow = []
-
-candidatewords = []
-for i in range(wordstotal):
-    candidatewords.append(wordlefile.readline().strip().lower())
-
-# Generate random hidden word
-hiddenwordindex = random.randint(0,wordstotal - 1)
-hiddenword = candidatewords[hiddenwordindex]
-
-# Game loop
-for round in range(6):
-    print(f'Round {round}')
-
-    # Calculate probabilities
-    positionfrequencies = [{},{},{},{},{}]
-    for word in candidatewords:
-        for index in range(5):
-            # print(word, index)
-            if word[index] not in positionfrequencies[index]:
-                positionfrequencies[index][word[index]] = 1
-            else:
-                positionfrequencies[index][word[index]] += 1
-    mostlikely = ''
-    for index in range(5):
-        maxfrequencycount = 0
-        maxfrequencyletter = '#'
-        for letter in 'abcdefghijklmnopqrstuvwxyz':
-            if positionfrequencies[index].get(letter, 0) > maxfrequencycount:
-                maxfrequencycount = positionfrequencies[index][letter]
-                maxfrequencyletter = letter
-        mostlikely += maxfrequencyletter
-    print(f'Optimal guess: {mostlikely}')
-
-    # Guess most similar word
-    maxsimilarity = 0
-    maxsimilarityword = ''
-    for word in candidatewords:
-        similarity = 0
-        for i in range(5):
-            if word[i] == mostlikely[i]:
-                similarity += 2
-            elif word[i] in mostlikely:
-                similarity += 1
-        if similarity > maxsimilarity:
-            maxsimilarity = similarity
-            maxsimilarityword = word
-
-    guess = maxsimilarityword
-    print(f'Most similar guess: {guess}')
-
-    # Score guess
-    scoreinput = input("Score?")
-
-    score = []
-    for index in range(5):
-        if scoreinput[index] == '.':
-            score.append('grey')
-        elif scoreinput[index] == 'G':
-            score.append('green')
-        elif scoreinput[index] == 'y':
-            score.append('yellow')
-        else:
-            print("UNEXPECTED")
-            exit(1)
-    print(f'Score: {"".join({"grey":".","green":"G","yellow":"y"}[result] for result in score)}')
-
-    # Check for win
-    won = (score == ['green','green','green','green','green'])
-    if won:
-        print("won\n")
-        break
-
-    # Analyze feedback
-    newgreen = [(guess[i], i) for i in range(5) if score[i] == 'green']
-    newyellow = [(guess[i], i) for i in range(5) if score[i] == 'yellow']
-
-    # Wordle's scoring is different - still need to understand rules better
-    for letter, pos in newgreen:
-        green[pos] = letter
-    newgrey = [(guess[i], i) for i in range(5) if score[i] == 'grey' and guess[i] not in green and guess[i] not in [yellowletter for yellowletter, _ in newyellow]]
-
-    wordsleft = len(candidatewords)
-    wordsleftcopy = wordsleft
-    i = 0
-
-    # Reevaluate words
-    print(f'Reevaluating {wordsleft} words',end='')
-    while i < wordsleft:
-        print('.', end='')
-        candidateword = candidatewords[i]
-
-        if candidateword == guess:
-            candidatewords.pop(i)
-            wordsleft -= 1
-            continue
-
-        # remove words that contain new grey letters
-        for letter, pos in newgrey:
-            if letter in candidateword:
-                candidatewords.pop(i)
-                wordsleft -= 1
-                break
-        else:
-
-            # remove words that don't have new green letters in the right position
-            for letter, pos in newgreen:
-                if candidateword[pos] != letter:
-                    candidatewords.pop(i)
-                    wordsleft -= 1
-                    break
-            else:
-                # remove words that have new yellow letters in the incorrect position
-                for letter, pos in newyellow:
-                    if candidateword[pos] == letter:
-                        candidatewords.pop(i)
-                        wordsleft -= 1
-                        break
+    def getNextGuess(self):
+        # Calculate frequencies of letters in each position
+        frequencies = [{}, {}, {}, {}, {}]
+        for word in self.candidateWords:
+            for pos in range(5):
+                letter = word[pos]
+                if letter not in frequencies[pos]:
+                    frequencies[pos][letter] = 1
                 else:
-                    # remove words that don't contain any new yellow letters in any position
-                    for letter, _ in newyellow:
-                        if letter not in candidateword:
-                            candidatewords.pop(i)
-                            wordsleft -= 1
-                            break
-                    else:
-                        i += 1
+                    frequencies[pos][letter] += 1
 
-    print(f'\nRemoved {wordsleftcopy - wordsleft} words from candidate list, now down to {wordsleft}\n')
+        # Build up word using most frequent letters
+        optimal = ''
+        for pos in range(5):
+            optimal += max(frequencies[pos], key=lambda x: frequencies[pos][x], default='#')
+        print(f'Optimal guess: {optimal}')
 
-if (won):
-    print(f"Word was: {guess}")
-else:
-    print(f"Narrowed it down to: {candidatewords}")
+        # Guess most similar word
+        guess = max(self.candidateWords, key=lambda candidate: sum([3 if candidate[i] == optimal[i] else 1 if candidate[i] in optimal else 0 for i in range(5)]))
+        print(f'Most similar guess: {guess}')
+
+        return guess
+
+    def guessResults(self, guess, feedback):
+        # Check for correct guess
+        if feedback == 'GGGGG':
+            self.won = True
+            print(f"Word was: {guess}")
+            return
+
+        # Find new green letters
+        green = [(guess[pos], pos) for pos in range(5) if feedback[pos] == 'G']
+
+        # Find new yellow letters
+        yellow = [(guess[pos], pos) for pos in range(5) if feedback[pos] == 'y']
+
+        # For each grey letter, find the maximum number of occurrences possible in the hidden word for that letter
+        grey = [(guess[pos], pos) for pos in range(5) if feedback[pos] == '.']
+        maxoccurences = {letter: 5 if letter not in [x[0] for x in grey] else [x[0] for x in green + yellow].count(letter) for letter in 'abcdefghijklmnopqrstuvwxyz'}
+
+        # Filter out candidate words
+        wordsbefore = len(self.candidateWords)
+        print(f'Reevaluating {wordsbefore} words', end='')
+        i = 0
+        while i < len(self.candidateWords):
+            print('.', end='')
+            remove = False
+            candidate = self.candidateWords[i]
+
+            # If we didn't win, the guess was wrong
+            remove |= (candidate == guess)
+
+            # If the word doesn't have green letters in the right position, remove it
+            for letter, pos in green:
+                remove |= (candidate[pos] != letter)
+
+            # If the word has yellow letters in the guessed (and incorrect) position, remove it
+            for letter, pos in yellow:
+                remove |= (candidate[pos] == letter)
+
+            # If the word does not contain enough yellow letters, remove it
+            for letter, _ in yellow:
+                remove |= (candidate.count(letter) < [x[0] for x in yellow].count(letter))
+
+            # If the word contains too many occurences of a letter, remove it
+            for letter, freq in maxoccurences.items():
+                remove |= (candidate.count(letter) > freq)
+
+            if remove:
+                self.candidateWords.remove(candidate)
+            else:
+                i += 1
+        wordsafter = len(self.candidateWords)
+
+        print(f'\nRemoved {wordsbefore - wordsafter} words from candidate list, now down to {wordsafter}\n')
+
+    def advanceRound(self):
+        if self.won:
+            return
+
+        self.roundNum += 1
+
+        if self.roundNum > self.roundMax:
+            print("Game over")
+            print(f"Narrowed it down to: {self.candidateWords}")
+
+    def autoPlay(self):
+        for i in range(self.roundMax):
+            print(f'Round {self.roundNum}')
+
+            guess = self.getNextGuess()
+            print(f'Guess: {guess}')
+
+            feedback = input('Score: ')
+            self.guessResults(guess, feedback)
+
+            self.advanceRound()
+
+            if self.won:
+                break
+
+
+if __name__ == '__main__':
+    wordleSolver = WordleSolver()
+    wordleSolver.autoPlay()
